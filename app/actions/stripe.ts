@@ -13,11 +13,34 @@ export async function createCheckoutSession() {
     redirect('/login')
   }
 
-  const { data: userData } = await supabase
+  // Ensure user record exists in the database
+  let { data: userData } = await supabase
     .from('users')
     .select('stripe_customer_id, subscription_status')
     .eq('id', user.id)
     .single()
+
+  // If user record doesn't exist, create it
+  if (!userData) {
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert({ id: user.id, email: user.email! })
+      .select()
+      .single()
+
+    if (insertError) {
+      console.error('Error creating user record:', insertError)
+    }
+
+    // Re-fetch user data
+    const { data: newUserData } = await supabase
+      .from('users')
+      .select('stripe_customer_id, subscription_status')
+      .eq('id', user.id)
+      .single()
+
+    userData = newUserData
+  }
 
   if (userData?.subscription_status === 'active') {
     redirect('/dashboard')
