@@ -4,6 +4,19 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { stripe } from '@/lib/stripe'
 
+function getAppUrl() {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL
+    || process.env.NEXT_PUBLIC_VERCEL_URL
+    || process.env.VERCEL_URL
+
+  if (!envUrl) {
+    console.warn('NEXT_PUBLIC_APP_URL is not set; defaulting to http://localhost:3000')
+    return 'http://localhost:3000'
+  }
+
+  return envUrl.startsWith('http') ? envUrl : `https://${envUrl}`
+}
+
 export async function createCheckoutSession() {
   try {
     const supabase = await createClient()
@@ -42,11 +55,7 @@ export async function createCheckoutSession() {
         .eq('id', user.id)
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
-
-    if (!appUrl) {
-      throw new Error('NEXT_PUBLIC_APP_URL environment variable is not set')
-    }
+    const appUrl = getAppUrl()
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -106,11 +115,7 @@ export async function createPortalSession() {
       redirect('/billing')
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL
-
-    if (!appUrl) {
-      throw new Error('NEXT_PUBLIC_APP_URL environment variable is not set')
-    }
+    const appUrl = getAppUrl()
 
     const session = await stripe.billingPortal.sessions.create({
       customer: userData.stripe_customer_id,
