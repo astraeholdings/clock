@@ -1,25 +1,38 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { updateSession } from './lib/supabase/middleware'
 
-export function middleware(req: NextRequest) {
-  const res = NextResponse.next()
+export async function middleware(req: NextRequest) {
+  try {
+    const response = await updateSession(req)
 
-  const session =
-    req.cookies.get('sb-access-token') ||
-    req.cookies.get('supabase-auth-token')
+    const hasSession =
+      Boolean(req.cookies.get('sb-access-token')?.value) ||
+      Boolean(req.cookies.get('supabase-auth-token')?.value)
 
-  const isAuthRoute =
-    req.nextUrl.pathname.startsWith('/login') ||
-    req.nextUrl.pathname.startsWith('/signup')
+    const isAuthRoute =
+      req.nextUrl.pathname.startsWith('/login') ||
+      req.nextUrl.pathname.startsWith('/signup')
 
-  if (!session && !isAuthRoute) {
-    const loginUrl = new URL('/login', req.url)
-    return NextResponse.redirect(loginUrl)
+    if (!hasSession && !isAuthRoute) {
+      const loginUrl = req.nextUrl.clone()
+      loginUrl.pathname = '/login'
+      const redirectResponse = NextResponse.redirect(loginUrl)
+
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie)
+      })
+
+      return redirectResponse
+    }
+
+    return response
+  } catch (error) {
+    console.error('Error in middleware:', error)
+    return NextResponse.next()
   }
-
-  return res
 }
 
 export const config = {
-  matcher: ['/((?!_next|favicon.ico|api).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api).*)'],
 }
